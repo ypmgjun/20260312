@@ -1,0 +1,14 @@
+---
+description: 배포 규칙 - 수정 시 항상 적용
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# 배포 규칙
+
+이 프로젝트를 **수정한 후에는 반드시**:
+
+1. **Git 커밋 및 푸시**: `git add . && git commit -m "변경 내용" && git push`
+2. **Vercel 자동 배포**: Git과 연동되어 푸시 시 자동 배포됨
+
+수정 완료 시점에 커밋·푸시까지 수행할 것.
