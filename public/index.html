@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>도미노피자 재고·발주 자동화</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #e31837;
+      --primary-dark: #b8102a;
+      --secondary: #2d2d2d;
+      --bg: #f8f6f3;
+      --card: #ffffff;
+      --border: #e5e2dd;
+      --success: #28a745;
+      --warning: #ffc107;
+      --danger: #dc3545;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background: var(--bg);
+      color: var(--secondary);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 1.25rem 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    .header h1 { font-size: 1.5rem; font-weight: 700; }
+    .header p { opacity: 0.9; font-size: 0.9rem; margin-top: 0.25rem; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .summary-card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      border: 1px solid var(--border);
+    }
+
+    .summary-card .label { font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; }
+    .summary-card .value { font-size: 1.5rem; font-weight: 700; color: var(--secondary); }
+    .summary-card.warning .value { color: var(--danger); }
+    .summary-card.success .value { color: var(--success); }
+
+    .section {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      border: 1px solid var(--border);
+    }
+
+    .section h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--primary);
+      display: inline-block;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-secondary { background: #e9ecef; color: var(--secondary); }
+    .btn-secondary:hover { background: #dee2e6; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover { background: #218838; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-danger:hover { background: #c82333; }
+    .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: #f8f9fa; font-weight: 600; font-size: 0.85rem; }
+    input, select {
+      width: 100%;
+      padding: 0.4rem 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--primary); }
+    input[type="number"] { min-width: 60px; }
+    .col-del { width: 40px; text-align: center; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    .badge-danger { background: #ffe0e0; color: var(--danger); }
+    .badge-success { background: #d4edda; color: var(--success); }
+
+    .order-group {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid var(--primary);
+    }
+    .order-group h3 { font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+    .order-group .items { font-size: 0.9rem; color: #555; margin-bottom: 0.75rem; }
+    .order-group .items li { margin: 0.25rem 0; }
+
+    .loading { text-align: center; padding: 2rem; color: #666; }
+    .error { background: #ffe0e0; color: var(--danger); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-weight: 500;
+      z-index: 1000;
+      animation: slideIn 0.3s ease;
+    }
+    .toast.success { background: var(--success); color: white; }
+    .toast.error { background: var(--danger); color: white; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .tab { padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; background: #f0f0f0; font-weight: 500; }
+    .tab.active { background: var(--primary); color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .help-text { font-size: 0.8rem; color: #666; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div id="loginScreen" style="display: none;">
+    <div style="max-width: 400px; margin: 4rem auto; padding: 2rem; background: var(--card); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+      <h2 style="margin-bottom: 1rem; color: var(--secondary);">🔐 팀 비밀번호 입력</h2>
+      <p style="color: #666; font-size: 0.9rem; margin-bottom: 1.5rem;">시스템 사용을 위해 팀 비밀번호를 입력해주세요.</p>
+      <input type="password" id="loginPassword" placeholder="비밀번호" style="width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;">
+      <div id="loginError" style="color: var(--danger); font-size: 0.9rem; margin-bottom: 1rem; display: none;"></div>
+      <button type="button" class="btn btn-primary" id="btnLogin" style="width: 100%;">입장</button>
+    </div>
+  </div>
+
+  <div id="appScreen" style="display: none;">
+  <header class="header">
+    <h1>🍕 도미노피자 재고·발주 자동화</h1>
+    <p>재고 및 거래처 정보를 입력하고 발주서를 발송하세요</p>
+  </header>
+
+  <main class="container">
+    <div class="section">
+      <h2>데이터 입력</h2>
+      <div class="tabs">
+        <div class="tab active" data-tab="suppliers">거래처 관리</div>
+        <div class="tab" data-tab="inventory">재고 관리</div>
+      </div>
+
+      <div id="tab-suppliers" class="tab-content active">
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th class="col-del"></th>
+                <th>거래처명</th>
+                <th>담당자</th>
+                <th>이메일</th>
+                <th>리드타임(일)</th>
+                <th>품목군</th>
+              </tr>
+            </thead>
+            <tbody id="suppliersTable"></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="btnAddSupplier">+ 거래처 추가</button>
+      </div>
+
+      <div id="tab-inventory" class="tab-content">
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th class="col-del"></th>
+                <th>품목코드</th>
+                <th>재료명</th>
+                <th>규격</th>
+                <th>단위</th>
+                <th>현재재고</th>
+                <th>안전재고</th>
+                <th>MOQ</th>
+                <th>거래처</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryTableInput"></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="btnAddInventory">+ 재고 품목 추가</button>
+        <p class="help-text">거래처는 위 '거래처 관리'에 등록된 이름과 일치해야 합니다.</p>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-secondary" id="btnLoadSample">샘플 데이터 불러오기</button>
+        <button class="btn btn-primary" id="btnSave">저장 후 분석</button>
+      </div>
+    </div>
+
+    <div id="errorBox" class="error" style="display: none;"></div>
+    <div id="loading" class="loading" style="display: none;">데이터 분석 중...</div>
+
+    <div id="content" style="display: none;">
+      <div class="summary-cards">
+        <div class="summary-card">
+          <div class="label">총 품목 수</div>
+          <div class="value" id="valTotal">0</div>
+        </div>
+        <div class="summary-card warning" id="cardNeedOrder">
+          <div class="label">발주 필요 품목</div>
+          <div class="value" id="valNeedOrder">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">권장 발주 수량</div>
+          <div class="value" id="valOrderQty">0</div>
+        </div>
+        <div class="summary-card" id="cardStatus">
+          <div class="label">상태</div>
+          <div class="value" id="valStatus">-</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>재고 분석 결과</h2>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>품목코드</th>
+                <th>재료명</th>
+                <th>현재재고</th>
+                <th>안전재고</th>
+                <th>발주권장</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryResultTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>거래처별 발주 목록</h2>
+        <div id="orderList"></div>
+        <div class="actions">
+          <button class="btn btn-success" id="btnSendAll">전체 발주 이메일 발송</button>
+        </div>
+        <p style="font-size: 0.85rem; color: #666; margin-top: 1rem;">
+          ※ 발송: chonf.yjji@gmail.com
+        </p>
+      </div>
+    </div>
+  </main>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const API = '/api';
+    const $ = id => document.getElementById(id);
+
+    async function checkAuth() {
+      try {
+        const res = await fetch(`${API}/auth/check`, { credentials: 'include' });
+        const data = await res.json();
+        if (data.authenticated) {
+          $('#loginScreen').style.display = 'none';
+          $('#appScreen').style.display = 'block';
+          return true;
+        }
+      } catch (e) {}
+      $('#loginScreen').style.display = 'block';
+      $('#appScreen').style.display = 'none';
+      return false;
+    }
+
+    async function doLogin() {
+      const password = $('#loginPassword').value;
+      $('#loginError').style.display = 'none';
+      if (!password) {
+        $('#loginError').textContent = '비밀번호를 입력해주세요.';
+        $('#loginError').style.display = 'block';
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/auth`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ password }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          $('#loginScreen').style.display = 'none';
+          $('#appScreen').style.display = 'block';
+          initApp();
+        } else {
+          $('#loginError').textContent = data.error || '인증 실패';
+          $('#loginError').style.display = 'block';
+        }
+      } catch (err) {
+        $('#loginError').textContent = '연결 실패';
+        $('#loginError').style.display = 'block';
+      }
+    }
+
+    function apiFetch(url, options = {}) {
+      const opts = { credentials: 'include', ...options };
+      return fetch(url, opts).then(res => {
+        if (res.status === 401 && res.headers.get('content-type')?.includes('json')) {
+          return res.json().then(data => {
+            if (data.code === 'AUTH_REQUIRED') {
+              checkAuth();
+              throw new Error('인증이 필요합니다.');
+            }
+            throw new Error(data.error || '인증 실패');
+          });
+        }
+        return res;
+      });
+    }
+
+    const showToast = (msg, type = 'success') => {
+      const el = $('toast');
+      el.textContent = msg;
+      el.className = `toast ${type}`;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 3000);
+    };
+
+    const showError = msg => {
+      const box = $('errorBox');
+      box.textContent = msg;
+      box.style.display = msg ? 'block' : 'none';
+    };
+
+    // 탭 전환
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        $(`tab-${tab.dataset.tab}`).classList.add('active');
+      });
+    });
+
+    // 거래처 행 템플릿
+    function supplierRow(data = {}) {
+      return `
+        <tr>
+          <td class="col-del"><button type="button" class="btn btn-danger btn-sm btn-del-supplier">삭제</button></td>
+          <td><input type="text" name="name" value="${escapeHtml(data.name || '')}" placeholder="거래처명"></td>
+          <td><input type="text" name="contact" value="${escapeHtml(data.contact || '')}" placeholder="담당자"></td>
+          <td><input type="email" name="email" value="${escapeHtml(data.email || '')}" placeholder="이메일"></td>
+          <td><input type="number" name="leadTime" value="${data.leadTime ?? ''}" min="0" placeholder="일"></td>
+          <td><input type="text" name="itemGroup" value="${escapeHtml(data.itemGroup || '')}" placeholder="품목군"></td>
+        </tr>
+      `;
+    }
+
+    // 재고 행 템플릿
+    function inventoryRow(data = {}, suppliers = []) {
+      const opts = suppliers.map(s => 
+        `<option value="${escapeHtml(s.name)}" ${data.supplier === s.name ? 'selected' : ''}>${escapeHtml(s.name)}</option>`
+      ).join('');
+      return `
+        <tr>
+          <td class="col-del"><button type="button" class="btn btn-danger btn-sm btn-del-inventory">삭제</button></td>
+          <td><input type="text" name="code" value="${escapeHtml(data.code || '')}" placeholder="예: ING001"></td>
+          <td><input type="text" name="name" value="${escapeHtml(data.name || '')}" placeholder="재료명"></td>
+          <td><input type="text" name="spec" value="${escapeHtml(data.spec || '')}" placeholder="규격"></td>
+          <td><input type="text" name="unit" value="${escapeHtml(data.unit || '')}" placeholder="개/팩/봉"></td>
+          <td><input type="number" name="current" value="${data.current ?? ''}" min="0" placeholder="현재"></td>
+          <td><input type="number" name="safety" value="${data.safety ?? ''}" min="0" placeholder="안전"></td>
+          <td><input type="number" name="moq" value="${data.moq ?? ''}" min="1" placeholder="MOQ"></td>
+          <td><select name="supplier"><option value="">선택</option>${opts}</select></td>
+        </tr>
+      `;
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function collectSuppliers() {
+      const rows = $('suppliersTable').querySelectorAll('tr');
+      return Array.from(rows).map(tr => ({
+        name: tr.querySelector('[name="name"]')?.value?.trim() || '',
+        contact: tr.querySelector('[name="contact"]')?.value?.trim() || '',
+        email: tr.querySelector('[name="email"]')?.value?.trim() || '',
+        leadTime: parseInt(tr.querySelector('[name="leadTime"]')?.value, 10) || 0,
+        itemGroup: tr.querySelector('[name="itemGroup"]')?.value?.trim() || '',
+      })).filter(r => r.name);
+    }
+
+    function collectInventory() {
+      const rows = $('inventoryTableInput').querySelectorAll('tr');
+      return Array.from(rows).map(tr => ({
+        code: tr.querySelector('[name="code"]')?.value?.trim() || '',
+        name: tr.querySelector('[name="name"]')?.value?.trim() || '',
+        spec: tr.querySelector('[name="spec"]')?.value?.trim() || '',
+        unit: tr.querySelector('[name="unit"]')?.value?.trim() || '',
+        current: parseInt(tr.querySelector('[name="current"]')?.value, 10) || 0,
+        safety: parseInt(tr.querySelector('[name="safety"]')?.value, 10) || 0,
+        moq: parseInt(tr.querySelector('[name="moq"]')?.value, 10) || 1,
+        supplier: tr.querySelector('[name="supplier"]')?.value?.trim() || '',
+      })).filter(r => r.code || r.name);
+    }
+
+    function renderSuppliers(suppliers = []) {
+      const tbody = $('suppliersTable');
+      tbody.innerHTML = suppliers.length ? suppliers.map(s => supplierRow(s)).join('') : supplierRow();
+      tbody.querySelectorAll('.btn-del-supplier').forEach(btn => {
+        btn.addEventListener('click', () => {
+          btn.closest('tr').remove();
+          if (!tbody.querySelector('tr')) tbody.innerHTML = supplierRow();
+        });
+      });
+    }
+
+    function renderInventory(inventory = [], suppliers = []) {
+      const tbody = $('inventoryTableInput');
+      const list = inventory.length ? inventory : [{}];
+      tbody.innerHTML = list.map(i => inventoryRow(i, suppliers)).join('');
+      tbody.querySelectorAll('.btn-del-inventory').forEach(btn => {
+        btn.addEventListener('click', () => {
+          btn.closest('tr').remove();
+          if (!tbody.querySelector('tr')) tbody.innerHTML = inventoryRow({}, suppliers);
+        });
+      });
+    }
+
+    $('btnAddSupplier').addEventListener('click', () => {
+      const tbody = $('suppliersTable');
+      const tr = document.createElement('tr');
+      tr.innerHTML = supplierRow().replace(/^<tr>|<\/tr>$/g, '');
+      tbody.appendChild(tr);
+      tr.querySelector('.btn-del-supplier').addEventListener('click', () => {
+        tr.remove();
+        if (!tbody.querySelector('tr')) tbody.innerHTML = supplierRow();
+      });
+    });
+
+    $('btnAddInventory').addEventListener('click', () => {
+      const suppliers = collectSuppliers();
+      const tbody = $('inventoryTableInput');
+      const tr = document.createElement('tr');
+      tr.innerHTML = inventoryRow({}, suppliers).replace(/^<tr>|<\/tr>$/g, '');
+      tbody.appendChild(tr);
+      tr.querySelector('.btn-del-inventory').addEventListener('click', () => {
+        tr.remove();
+        if (!tbody.querySelector('tr')) tbody.innerHTML = inventoryRow({}, suppliers);
+      });
+    });
+
+    async function loadSample() {
+      $('loading').style.display = 'block';
+      showError('');
+      try {
+        const res = await apiFetch(`${API}/sample`);
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || data.message || `오류 (${res.status})`);
+        }
+        renderSuppliers(data.suppliers || []);
+        renderInventory(data.inventory || [], data.suppliers || []);
+        showToast('샘플 데이터를 불러왔습니다.');
+      } catch (err) {
+        showError(err.message || '샘플 불러오기 실패');
+        console.error('Sample load error:', err);
+      } finally {
+        $('loading').style.display = 'none';
+      }
+    }
+
+    async function saveAndAnalyze() {
+      const suppliers = collectSuppliers();
+      const inventory = collectInventory();
+
+      if (!suppliers.length && !inventory.length) {
+        showError('거래처 또는 재고 품목을 최소 1개 이상 입력해주세요.');
+        return;
+      }
+
+      $('loading').style.display = 'block';
+      showError('');
+
+      try {
+        const res = await apiFetch(`${API}/data`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ suppliers, inventory }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        renderAnalysis(data);
+        $('content').style.display = 'block';
+        showToast('저장 및 분석 완료');
+      } catch (err) {
+        showError(err.message || '저장 실패');
+      } finally {
+        $('loading').style.display = 'none';
+      }
+    }
+
+    function renderAnalysis(data) {
+      const s = data.summary;
+      $('valTotal').textContent = s.totalItems;
+      $('valNeedOrder').textContent = s.needOrderCount;
+      $('valOrderQty').textContent = s.totalOrderQty;
+      $('valStatus').textContent = s.status;
+      $('cardNeedOrder').classList.toggle('warning', s.needOrderCount > 0);
+      $('cardStatus').classList.toggle('warning', s.status !== '정상');
+
+      $('inventoryResultTable').innerHTML = data.inventory.map(i => `
+        <tr>
+          <td>${escapeHtml(i.code)}</td>
+          <td>${escapeHtml(i.name)}</td>
+          <td>${i.current}${escapeHtml(i.unit)}</td>
+          <td>${i.safety}${escapeHtml(i.unit)}</td>
+          <td>${i.orderQty || '-'}${i.orderQty ? escapeHtml(i.unit) : ''}</td>
+          <td><span class="badge ${i.status === '발주 필요' ? 'badge-danger' : 'badge-success'}">${i.status}</span></td>
+        </tr>
+      `).join('');
+
+      const orderList = $('orderList');
+      orderList.innerHTML = data.ordersBySupplier.map(o => `
+        <div class="order-group">
+          <h3>
+            ${escapeHtml(o.supplier)}
+            <button class="btn btn-secondary btn-sm send-one" data-supplier="${escapeHtml(o.supplier)}">이 거래처만 발송</button>
+          </h3>
+          <ul class="items">
+            ${o.items.map(i => `<li>${escapeHtml(i.name)}: ${i.orderQty}${escapeHtml(i.unit)}</li>`).join('')}
+          </ul>
+          <div>총 ${o.totalQty}개 | 수신: ${escapeHtml(o.email || '-')}</div>
+        </div>
+      `).join('') || '<p>발주 필요 품목이 없습니다.</p>';
+
+      orderList.querySelectorAll('.send-one').forEach(btn => {
+        btn.addEventListener('click', () => sendOrder(btn.dataset.supplier));
+      });
+    }
+
+    async function sendOrder(supplierName) {
+      const suppliers = collectSuppliers();
+      const inventory = collectInventory();
+      try {
+        const res = await apiFetch(`${API}/send-order/${encodeURIComponent(supplierName)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ suppliers, inventory }),
+        });
+        const data = await res.json();
+        if (data.success) showToast(`${supplierName} 발주 이메일 발송 완료`);
+        else showToast(data.message || '발송 실패', 'error');
+      } catch (err) {
+        showToast(err.message || '발송 실패', 'error');
+      }
+    }
+
+    async function sendAllOrders() {
+      const btn = $('btnSendAll');
+      btn.disabled = true;
+      const suppliers = collectSuppliers();
+      const inventory = collectInventory();
+      try {
+        const res = await apiFetch(`${API}/send-all-orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ suppliers, inventory }),
+        });
+        const data = await res.json();
+        if (data.sent > 0) showToast(`${data.sent}건 발주 이메일 발송 완료`);
+        else showToast(data.message || '발송할 발주가 없거나 설정이 필요합니다.', 'error');
+      } catch (err) {
+        showToast(err.message || '발송 실패', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    $('btnLoadSample').addEventListener('click', loadSample);
+    $('btnSave').addEventListener('click', saveAndAnalyze);
+    $('btnSendAll').addEventListener('click', sendAllOrders);
+
+    function initApp() {
+      (async () => {
+        try {
+          const res = await apiFetch(`${API}/data`);
+          const data = await res.json();
+          if (data.suppliers?.length || data.inventory?.length) {
+            renderSuppliers(data.suppliers);
+            renderInventory(data.inventory, data.suppliers);
+            const analysisRes = await apiFetch(`${API}/inventory`);
+            const analysis = await analysisRes.json();
+            renderAnalysis(analysis);
+            $('content').style.display = 'block';
+          } else {
+            renderSuppliers([]);
+            renderInventory([]);
+          }
+        } catch {
+          renderSuppliers([]);
+          renderInventory([]);
+        }
+      })();
+    }
+
+    $('#btnLogin').addEventListener('click', doLogin);
+    $('#loginPassword').addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
+
+    (async () => {
+      const authed = await checkAuth();
+      if (authed) initApp();
+    })();
+  </script>
+</body>
+</html>
