@@ -6,7 +6,8 @@
   <title>도미노피자 재고·발주 자동화</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" onerror="this.onerror=null;">
+  <style>body{font-family:'Noto Sans KR',system-ui,-apple-system,sans-serif;}</style>
   <style>
     :root {
       --primary: #e31837;
@@ -169,8 +170,9 @@
   </style>
 </head>
 <body>
-  <div id="loginScreen" style="display: none;">
-    <div style="max-width: 400px; margin: 4rem auto; padding: 2rem; background: var(--card); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+  <noscript><p style="padding:2rem;text-align:center;">JavaScript가 필요합니다.</p></noscript>
+  <div id="loginScreen" style="display:block;min-height:100vh;background:#f8f6f3;padding-top:4rem;">
+    <div style="max-width:400px;margin:0 auto;padding:2rem;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid #e5e2dd;">
       <h2 style="margin-bottom: 1rem; color: var(--secondary);">🔐 팀 비밀번호 입력</h2>
       <p style="color: #666; font-size: 0.9rem; margin-bottom: 1.5rem;">시스템 사용을 위해 팀 비밀번호를 입력해주세요.</p>
       <input type="password" id="loginPassword" placeholder="비밀번호" style="width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;">
@@ -308,13 +310,15 @@
         const res = await fetch(`${API}/auth/check`, { credentials: 'include' });
         const data = await res.json();
         if (data.authenticated) {
-          $('#loginScreen').style.display = 'none';
-          $('#appScreen').style.display = 'block';
+          document.getElementById('loginScreen').style.display = 'none';
+          document.getElementById('appScreen').style.display = 'block';
           return true;
         }
-      } catch (e) {}
-      $('#loginScreen').style.display = 'block';
-      $('#appScreen').style.display = 'none';
+      } catch (e) {
+        console.warn('Auth check failed:', e);
+      }
+      document.getElementById('loginScreen').style.display = 'block';
+      document.getElementById('appScreen').style.display = 'none';
       return false;
     }
 
@@ -659,9 +663,14 @@
     $('#btnLogin').addEventListener('click', doLogin);
     $('#loginPassword').addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
 
-    (async () => {
-      const authed = await checkAuth();
-      if (authed) initApp();
+    (async function init() {
+      try {
+        const authed = await checkAuth();
+        if (authed) initApp();
+      } catch (e) {
+        console.error('Init error:', e);
+        document.getElementById('loginScreen').style.display = 'block';
+      }
     })();
   </script>
 </body>
