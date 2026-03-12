@@ -29,7 +29,8 @@ function verifyAuth(req) {
 
 function authMiddleware(req, res, next) {
   if (!process.env.TEAM_PASSWORD) return next();
-  if (req.path === '/api/auth') return next();
+  if (req.path === '/' || req.path === '/index.html' || req.path === '/api/auth' || req.path === '/api/auth/check') return next();
+  if (!req.path.startsWith('/api/')) return next(); // 정적 파일 등
   if (verifyAuth(req)) return next();
   res.status(401).json({ error: '인증이 필요합니다.', code: 'AUTH_REQUIRED' });
 }
@@ -50,6 +51,11 @@ app.use((req, res, next) => {
 });
 
 app.use(authMiddleware);
+
+// 루트 경로: HTML 서빙 (Vercel에서 정적 파일 미제공 시)
+app.get(['/', '/index.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
 
 let storedData = { suppliers: [], inventory: [] };
 
