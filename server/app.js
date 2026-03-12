@@ -69,13 +69,16 @@ function getCurrentAnalysis(dataOverride = null) {
 }
 
 app.post('/api/auth', (req, res) => {
-  const { password } = req.body || {};
-  const teamPassword = process.env.TEAM_PASSWORD;
+  const inputPassword = String(req.body?.password ?? '').trim();
+  const teamPassword = (process.env.TEAM_PASSWORD ?? '').trim();
   if (!teamPassword) {
     return res.json({ success: true });
   }
-  if (password !== teamPassword) {
-    return res.status(401).json({ error: '비밀번호가 올바르지 않습니다.' });
+  if (inputPassword !== teamPassword) {
+    return res.status(401).json({
+      success: false,
+      error: '비밀번호가 올바르지 않습니다. 팀 비밀번호를 확인해주세요.',
+    });
   }
   const token = getAuthToken();
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=${token}; Path=/; Max-Age=${COOKIE_MAX_AGE / 1000}; HttpOnly; SameSite=Lax`);

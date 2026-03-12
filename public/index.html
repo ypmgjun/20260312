@@ -176,7 +176,7 @@
       <h2 style="margin-bottom: 1rem; color: var(--secondary);">🔐 팀 비밀번호 입력</h2>
       <p style="color: #666; font-size: 0.9rem; margin-bottom: 1.5rem;">시스템 사용을 위해 팀 비밀번호를 입력해주세요.</p>
       <input type="password" id="loginPassword" placeholder="비밀번호" style="width: 100%; padding: 0.75rem; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;">
-      <div id="loginError" style="color: var(--danger); font-size: 0.9rem; margin-bottom: 1rem; display: none;"></div>
+      <div id="loginError" style="color:#dc3545;font-size:0.9rem;margin:0.5rem 0 1rem;display:none;min-height:1.2em;"></div>
       <button type="button" class="btn btn-primary" id="btnLogin" style="width: 100%;">입장</button>
     </div>
   </div>
@@ -323,11 +323,13 @@
     }
 
     async function doLogin() {
-      const password = $('#loginPassword').value;
-      $('#loginError').style.display = 'none';
+      const password = ($('#loginPassword').value || '').trim();
+      const errEl = document.getElementById('loginError');
+      errEl.style.display = 'none';
+      errEl.textContent = '';
       if (!password) {
-        $('#loginError').textContent = '비밀번호를 입력해주세요.';
-        $('#loginError').style.display = 'block';
+        errEl.textContent = '비밀번호를 입력해주세요.';
+        errEl.style.display = 'block';
         return;
       }
       try {
@@ -337,18 +339,25 @@
           credentials: 'include',
           body: JSON.stringify({ password }),
         });
-        const data = await res.json();
-        if (data.success) {
-          $('#loginScreen').style.display = 'none';
-          $('#appScreen').style.display = 'block';
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (_) {
+          errEl.textContent = '서버 응답을 확인할 수 없습니다.';
+          errEl.style.display = 'block';
+          return;
+        }
+        if (res.ok && data.success) {
+          document.getElementById('loginScreen').style.display = 'none';
+          document.getElementById('appScreen').style.display = 'block';
           initApp();
         } else {
-          $('#loginError').textContent = data.error || '인증 실패';
-          $('#loginError').style.display = 'block';
+          errEl.textContent = data.error || (res.status === 401 ? '비밀번호가 올바르지 않습니다.' : '로그인에 실패했습니다.');
+          errEl.style.display = 'block';
         }
       } catch (err) {
-        $('#loginError').textContent = '연결 실패';
-        $('#loginError').style.display = 'block';
+        errEl.textContent = '연결 실패: ' + (err.message || '네트워크 오류');
+        errEl.style.display = 'block';
       }
     }
 
